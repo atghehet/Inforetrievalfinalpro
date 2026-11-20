@@ -1,0 +1,4 @@
+{"paper_id": "D1", "title": "Small trainable modules", "abstract": "Parameter efficient adaptation keeps a pretrained encoder frozen."}
+{"paper_id": "D2", "title": "Mining training pairs", "abstract": "Contrastive training samples informative passages from an initial ranker."}
+{"paper_id": "D3", "title": "Graph centrality", "abstract": "A random walk estimates node importance from incoming edges."}
+{"paper_id": "D4", "title": "Compact vector codes", "abstract": "Product quantization compresses representations for efficient nearest neighbour search."}
