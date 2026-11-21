@@ -1,0 +1,1 @@
+# No pip packages. Python 3.10+ with sqlite3 compiled with FTS5.
