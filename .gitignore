@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated data and model caches
+cache/
+data/
+*.parquet
+*.sqlite
+*.db
+
+# Local environment
+.env

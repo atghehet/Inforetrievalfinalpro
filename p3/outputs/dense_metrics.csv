@@ -1,0 +1,4 @@
+split,queries_evaluated,Recall@10,MRR@10,nDCG@10
+train,145,0.3172,0.0829,0.1373
+val,23,0.2609,0.057,0.1035
+test,32,0.3125,0.1251,0.1685
