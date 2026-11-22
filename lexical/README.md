@@ -31,7 +31,11 @@ Ask P1 to remove query sentences and exact/near duplicates from all indexable co
 ## Run the experiments
 1. Run the quick demo above. A quick run includes all models and representations, using one setting each.
 2. Put P1's files in data/real/. Start with a coherent pilot subset containing its query targets, their indexable contexts and distractor papers. Check time, free disk and representative query latency before the full grid. SQLite stores postings on disk. Common terms, disk sorts during build and exact language-model scoring can be expensive.
-3. Run the main experiment:
+3. Run the main experiment. For a faster run, `--middle` keeps window 0 and no stemming, runs every model on every representation once, and tunes BM25 over all six (k1, b) settings on abstract, context and expanded. It takes about 20 minutes on 8,843 papers, versus several hours for the full grid. Stemming, window and BM25F-weight comparisons need the full grid. Selection is still on validation MRR@10, so the fusion run comes from the tuned BM25 winner. Add `--method-filter` to compare all contexts with method-only contexts.
+   ```bash
+   python3 -m p2.experiment --data data/real --out outputs/real-middle --method-filter --middle
+   ```
+   Full grid:
    ```bash
    python3 -m p2.experiment --data data/real --out outputs/real-v1
    ```

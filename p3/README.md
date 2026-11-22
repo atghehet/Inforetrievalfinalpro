@@ -5,6 +5,22 @@ representations P2 uses, plus hybrid Reciprocal Rank Fusion (RRF) with P2's
 BM25 run. All paths are repo-relative (via `citeds.config`), so the scripts
 run on any machine. Run them from the repository root.
 
+## Scope of the reported results
+
+The reported dense and hybrid results use **MiniLM only**
+(`sentence-transformers/all-MiniLM-L6-v2`). SPECTER is supported but was not
+run for the report, because it takes 45–60 minutes on CPU. That's future work:
+
+```powershell
+python p3/src/dense_baseline.py --model sentence-transformers/allenai-specter
+```
+
+Or use `python scripts/run_all.py --models sentence-transformers/all-MiniLM-L6-v2 sentence-transformers/allenai-specter`.
+`hybrid_rrf.py` then picks the best dense run on validation automatically.
+
+The BM25 side of the hybrid comes from P2's **middle grid** (BM25 tuned over 6
+settings; see `lexical/README.md`).
+
 ## Install
 
 ```powershell
@@ -17,7 +33,6 @@ python p3/src/check_setup.py
 
 ```powershell
 python p3/src/dense_baseline.py
-python p3/src/dense_baseline.py --model sentence-transformers/allenai-specter
 python p3/src/evaluate_dense.py
 python p3/src/hybrid_rrf.py
 python p3/src/evaluate_hybrid_test.py
@@ -25,8 +40,8 @@ python p3/src/evaluate_hybrid_test.py
 
 Or run the whole project with `python scripts/run_all.py`.
 
-The first two commands are the MiniLM run (fast) and the SPECTER run (slower:
-about 30–60 minutes on CPU). `evaluate_dense.py` scores the validation split.
+`dense_baseline.py` runs MiniLM by default (about 10 minutes on a 4-core CPU).
+`evaluate_dense.py` scores the validation split.
 `hybrid_rrf.py` picks the dense system and RRF k on validation and freezes
 them. `evaluate_hybrid_test.py` scores test once with those frozen choices.
 

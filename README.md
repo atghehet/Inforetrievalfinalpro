@@ -45,14 +45,15 @@ download and SciCite).
 python scripts/run_all.py
 ```
 
-This runs: leakage check → export for P2 → P2 lexical experiment (quick grid)
+This runs: leakage check → export for P2 → P2 lexical experiment (middle grid)
 → P3 dense retrieval (MiniLM, three representations) → P3 validation metrics
 → hybrid RRF selected on validation → format check of every frozen run →
 `runs/MANIFEST.csv`. Options:
 
 | Option | Effect |
 |---|---|
-| `--p2 full` | P2's full tuning grid: windows 0/1/2, stemming, method filter, all parameters (hours) |
+| `--p2 quick` | P2 quick grid: one setting per model (minutes) |
+| `--p2 full` | P2's full tuning grid: windows 0/1/2, stemming, BM25F weights, all parameters (hours) |
 | `--p2 skip` | Reuse existing `runs/p2` |
 | `--models sentence-transformers/all-MiniLM-L6-v2 sentence-transformers/allenai-specter` | Also run SPECTER |
 | `--build` | Rebuild P1 data from `data/raw` first |

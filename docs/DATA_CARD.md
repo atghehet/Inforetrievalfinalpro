@@ -1,6 +1,6 @@
 # Data card: Citation-Context Search corpus (cs.CL)
 
-> Numbers are from build v2 (2026-11-22, URLs stripped). Full statistics: `docs/dataset_stats.md`.
+> Numbers are from build v3 (2026-11-22: URLs stripped, two neighbour sentences per side). Full statistics: `docs/dataset_stats.md`.
 
 ## Summary
 
@@ -51,7 +51,10 @@ the paper the sentence cites.
 
 ## Known limitations and biases
 
-* **Small corpus (v1).** The open subset holds 8,843 cs.CL papers, below the plan's
+* **Reduced experiment grid.** Reported runs use P2's middle grid (no stemming,
+  window or BM25F-weight comparisons) and MiniLM as the only dense model; SPECTER and
+  the full P2 grid are runnable but were not run.
+* **Small corpus.** The open subset holds 8,843 cs.CL papers, below the plan's
   50,000 target, and 76% of them are never cited inside the corpus. 83,371 citing
   sentences were dropped because the cited paper is outside the corpus. The full
   unarXive set (Zenodo 7752754) is needed to reach the target size.

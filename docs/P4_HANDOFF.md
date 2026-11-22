@@ -15,14 +15,20 @@ README) and shared on the team drive as `data/processed` and `runs/`.
 | Citation-function labels | `data/processed/context_functions.parquet` | Join `queries.context_id = context_functions.context_id` for per-function analysis |
 | Index of all run files | `runs/MANIFEST.csv` | `member, system, split, path, queries, lines, six_columns` |
 | P2 lexical runs | `runs/p2/validation/*.run` (tuning grid), `runs/p2/test/*.run` (frozen, one per representation and model), `runs/p2/tuning.csv`, `best.json`, `efficiency.csv` | P2 selected on validation MRR@10 |
-| P3 dense runs | `runs/p3/dense/<model>_<variant>.{val,test}.run` | Models `minilm` and `specter`; variants `abstract`, `contexts`, `expanded` |
+| P3 dense runs | `runs/p3/dense/minilm_<variant>.{val,test}.run` | MiniLM only; variants `abstract`, `contexts`, `expanded` |
 | P3 hybrid runs | `runs/p3/hybrid/hybrid_rrf.{val,test}.run`, `selection.json` | Dense system and RRF k frozen on validation |
 
 Read the data with `citeds.io` (for example `io.load_edges()`, `io.load_queries("test")`). Column definitions are in `docs/SCHEMA.md`.
 
+## What was run (scope)
+
+* **P2 lexical: middle grid** (`--p2 middle`). It covers every model (TF-IDF, BM25, query likelihood, RM3, BM25F) on every representation (abstract, context, expanded, fielded), window 0, no stemming, method filter on and off. BM25 is tuned over k1 ∈ {0.8, 1.2, 1.6} × b ∈ {0.4, 0.75} on abstract, context and expanded. Other models use one setting. Stemming, context-window (1, 2) and BM25F-weight comparisons were **not run**; `python scripts/run_all.py --p2 full` reproduces them (hours). P2 runs keep the top 100 papers per query.
+* **P3 dense: MiniLM only** (`all-MiniLM-L6-v2`), abstract, contexts and expanded. SPECTER is future work (`--models ... sentence-transformers/allenai-specter`).
+* **P3 hybrid:** RRF of the best MiniLM run and P2's tuned BM25 fusion run, with k chosen on validation (`runs/p3/hybrid/selection.json`).
+
 ## Conventions
 
-* Run format: `qid Q0 docid rank score tag`, at most 1,000 papers per query, ranks from 1.
+* Run format: `qid Q0 docid rank score tag`, ranks from 1. P2 runs hold up to 100 papers per query and P3 runs up to 1,000, so compare Recall@k only for k ≤ 100.
 * IDs: `query_id` such as `q002635`, and `paper_id` = arXiv ID without version, such as `2106.09685`.
 * Tuning is on `val` only. `test` runs are frozen and meant to be scored once per system.
 * A query missing from a run counts as a miss: score it as 0, don't drop it.

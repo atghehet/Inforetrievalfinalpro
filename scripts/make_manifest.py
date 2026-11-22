@@ -45,7 +45,8 @@ def describe(path: Path) -> dict:
 
 
 def main() -> None:
-    rows = [describe(p) for p in sorted(RUNS.rglob("*.run"))]
+    # Only the current P2 and P3 outputs; set-aside folders such as p2_full_partial are skipped.
+    rows = [describe(p) for d in ("p2", "p3") for p in sorted((RUNS / d).rglob("*.run"))]
     if not rows:
         sys.exit("no run files under runs/")
     out = RUNS / "MANIFEST.csv"

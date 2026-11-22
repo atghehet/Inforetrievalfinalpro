@@ -1,6 +1,7 @@
 """Run the whole project pipeline end to end, in order (P1 -> P2 -> P3 -> P4 inputs).
 
-    python scripts/run_all.py                    # use existing data/processed, P2 quick grid
+    python scripts/run_all.py                    # use existing data/processed, P2 middle grid (default)
+    python scripts/run_all.py --p2 quick         # P2 quick grid: one setting per model (minutes)
     python scripts/run_all.py --p2 full          # P2's full tuning grid (hours)
     python scripts/run_all.py --build            # also rebuild P1 data from data/raw first
     python scripts/run_all.py --p2 skip          # reuse existing runs/p2
@@ -8,7 +9,7 @@
 Steps
   1. P1  (optional --build) build tables/splits/leakage control, label citation functions
   2. P1  export JSONL for P2 (data/p2_input) and verify it
-  3. P2  lexical experiment -> runs/p2  (validation runs, frozen test runs, fusion runs)
+  3. P2  lexical experiment (--p2 quick|middle|full|skip) -> runs/p2 (validation, frozen test and fusion runs)
   4. P3  dense retrieval for each --models -> runs/p3/dense
   5. P3  validation metrics, hybrid RRF (choices frozen on validation), test check
   6.     leakage check, format check of every frozen run, runs/MANIFEST.csv for P4
@@ -38,7 +39,9 @@ def step(title: str, cmd: list[str], cwd: Path = ROOT) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--build", action="store_true", help="rebuild P1 data from data/raw (needs the raw files)")
-    ap.add_argument("--p2", choices=["quick", "full", "skip"], default="quick")
+    ap.add_argument("--p2", choices=["quick", "middle", "full", "skip"], default="middle",
+                    help="quick: one setting per model; middle: quick + BM25 tuned (6 settings) on "
+                         "abstract/context/expanded; full: P2's complete grid; skip: reuse runs/p2")
     ap.add_argument("--models", nargs="+", default=["sentence-transformers/all-MiniLM-L6-v2"],
                     help="dense models; add sentence-transformers/allenai-specter for SPECTER (slower)")
     a = ap.parse_args()
@@ -56,7 +59,7 @@ def main() -> None:
         if out.exists():
             shutil.rmtree(out)  # P2 requires a fresh output directory
         cmd = [PY, "-m", "p2.experiment", "--data", str(ROOT / "data" / "p2_input"), "--out", str(out),
-               "--method-filter"] + (["--quick"] if a.p2 == "quick" else [])
+               "--method-filter"] + {"quick": ["--quick"], "middle": ["--middle"], "full": []}[a.p2]
         step(f"P2 lexical experiment ({a.p2})", cmd, cwd=ROOT / "lexical")
 
     for model in a.models:
