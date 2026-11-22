@@ -1,162 +1,80 @@
+"""Hybrid retrieval: Reciprocal Rank Fusion of P2's BM25 run and a P3 dense run.
 
-from pathlib import Path
-import math
+    python p3/src/hybrid_rrf.py
+
+Everything is chosen on VALIDATION, then frozen and applied to test:
+  1. the dense run (best validation MRR@10 among runs/p3/dense/*.val.run,
+     unless --dense names one),
+  2. the RRF constant k from --k-grid.
+The BM25 side is P2's frozen fusion run (runs/p2/fusion/bm25.{validation,test}.run),
+which P2 already selected on validation.
+
+Writes runs/p3/hybrid/hybrid_rrf.{val,test}.run, the validation grid
+(hybrid_validation_metrics.csv) and selection.json, which
+evaluate_hybrid_test.py reads instead of a hard-coded constant.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+
 import pandas as pd
 
-project_folder = Path.home() / "Desktop" / "CitationSearchProject"
-p1_folder = (
-    project_folder
-    / "reference_p1"
-    / "Inforetrievalfinalpro-p1-data-pipeline"
-)
-data_folder = p1_folder / "data" / "processed"
-
-p3_folder = Path(__file__).resolve().parent.parent
-output_folder = p3_folder / "outputs"
-p2_folder = output_folder / "p2_quick"
-
-output_folder.mkdir(parents=True, exist_ok=True)
+from common import (DENSE_DIR, HYBRID_DIR, P2_RUNS_DIR, P2_SPLIT, evaluate, load_qrels,
+                    load_run, qrels_path, rrf, write_run)
 
 
-def load_run(path):
-    rankings = {}
-
-    with path.open(encoding="utf-8") as file:
-        for line in file:
-            parts = line.split()
-            if len(parts) < 6:
-                continue
-
-            query_id = parts[0]
-            paper_id = parts[2]
-            rank = int(parts[3])
-
-            rankings.setdefault(query_id, {})[paper_id] = rank
-
-    return rankings
+def bm25_run_path(split: str):
+    return P2_RUNS_DIR / "fusion" / f"bm25.{P2_SPLIT[split]}.run"
 
 
-def load_qrels(path):
-    relevant = {}
+def main(argv=None) -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dense", help="dense system name, e.g. minilm_expanded (default: best on validation)")
+    ap.add_argument("--k-grid", nargs="+", type=int, default=[10, 20, 40, 60, 100])
+    a = ap.parse_args(argv)
 
-    with path.open(encoding="utf-8") as file:
-        for line in file:
-            parts = line.split()
-            if len(parts) >= 4 and int(parts[3]) > 0:
-                relevant.setdefault(parts[0], set()).add(parts[2])
+    for split in ("val", "test"):
+        if not bm25_run_path(split).exists():
+            raise SystemExit(f"Missing {bm25_run_path(split)}: run P2's experiment with --out runs/p2 first")
+    rel_val = load_qrels(qrels_path("val"))
+    bm25_val = load_run(bm25_run_path("val"))
 
-    return relevant
+    dense_scores = {p.name.removesuffix(".val.run"): evaluate(load_run(p), rel_val)["MRR@10"]
+                    for p in sorted(DENSE_DIR.glob("*.val.run"))}
+    if not dense_scores:
+        raise SystemExit("No dense validation runs; run p3/src/dense_baseline.py first")
+    dense_name = a.dense or max(dense_scores, key=dense_scores.get)
+    dense_val = load_run(DENSE_DIR / f"{dense_name}.val.run")
 
+    rows = []
+    for k in a.k_grid:
+        rows.append({"k": k, **evaluate({q: {d: r for r, (d, _) in enumerate(v, 1)}
+                                         for q, v in rrf([dense_val, bm25_val], k).items()}, rel_val)})
+    grid = pd.DataFrame(rows)
+    best_k = int(grid.sort_values(["MRR@10", "k"], ascending=[False, True]).iloc[0]["k"])
 
-def reciprocal_rank_fusion(dense, bm25, k):
-    combined = {}
+    HYBRID_DIR.mkdir(parents=True, exist_ok=True)
+    grid.round(4).to_csv(HYBRID_DIR / "hybrid_validation_metrics.csv", index=False)
+    bm25_sel = (P2_RUNS_DIR / "fusion" / "selection.txt")
+    selection = {"dense_system": dense_name, "rrf_k": best_k,
+                 "bm25_system": bm25_sel.read_text().strip() if bm25_sel.exists() else "bm25 (P2 fusion run)",
+                 "selected_on": "validation MRR@10",
+                 "dense_validation_mrr10": {k: round(v, 4) for k, v in dense_scores.items()}}
+    (HYBRID_DIR / "selection.json").write_text(json.dumps(selection, indent=2))
 
-    query_ids = set(dense) | set(bm25)
+    tag = f"hybrid_rrf_k{best_k}"
+    for split in ("val", "test"):
+        dense = load_run(DENSE_DIR / f"{dense_name}.{split}.run")
+        bm25 = load_run(bm25_run_path(split))
+        write_run(HYBRID_DIR / f"hybrid_rrf.{split}.run", rrf([dense, bm25], best_k), tag)
 
-    for query_id in query_ids:
-        scores = {}
-
-        for paper_id, rank in dense.get(query_id, {}).items():
-            scores[paper_id] = scores.get(paper_id, 0.0) + 1.0 / (k + rank)
-
-        for paper_id, rank in bm25.get(query_id, {}).items():
-            scores[paper_id] = scores.get(paper_id, 0.0) + 1.0 / (k + rank)
-
-        combined[query_id] = sorted(
-            scores.items(),
-            key=lambda item: (-item[1], item[0])
-        )
-
-    return combined
-
-
-def evaluate(rankings, relevant):
-    hits = 0
-    reciprocal_ranks = []
-    ndcg_scores = []
-
-    for query_id, relevant_papers in relevant.items():
-        ranked = rankings.get(query_id, [])
-
-        found_rank = None
-
-        for rank, (paper_id, score) in enumerate(ranked[:10], start=1):
-            if paper_id in relevant_papers:
-                found_rank = rank
-                break
-
-        if found_rank is None:
-            reciprocal_ranks.append(0.0)
-            ndcg_scores.append(0.0)
-        else:
-            hits += 1
-            reciprocal_ranks.append(1.0 / found_rank)
-            ndcg_scores.append(1.0 / math.log2(found_rank + 1))
-
-    total = len(relevant)
-
-    if total == 0:
-        return 0, 0, 0
-
-    return (
-        hits / total,
-        sum(reciprocal_ranks) / total,
-        sum(ndcg_scores) / total
-    )
+    print(f"Dense system (by validation MRR@10): {dense_name}")
+    print("RRF validation grid:")
+    print(grid.round(4).to_string(index=False))
+    print(f"\nSelected k = {best_k}; frozen in {HYBRID_DIR / 'selection.json'}")
+    print("Wrote hybrid_rrf.val.run and hybrid_rrf.test.run (test not scored here).")
 
 
-dense_val = load_run(output_folder / "dense_val.run")
-bm25_val = load_run(p2_folder / "fusion" / "bm25.validation.run")
-
-relevant_val = load_qrels(
-    data_folder / "qrels" / "qrels.val.txt"
-)
-
-print("Validation queries:", len(relevant_val))
-print("Dense rankings:", len(dense_val))
-print("BM25 rankings:", len(bm25_val))
-
-results = []
-validation_runs = {}
-
-for k in [20, 60, 100]:
-    fused = reciprocal_rank_fusion(dense_val, bm25_val, k)
-    recall, mrr, ndcg = evaluate(fused, relevant_val)
-
-    results.append({
-        "k": k,
-        "Recall@10": round(recall, 4),
-        "MRR@10": round(mrr, 4),
-        "nDCG@10": round(ndcg, 4)
-    })
-
-    validation_runs[k] = fused
-
-results_df = pd.DataFrame(results)
-print("\nValidation results")
-print(results_df.to_string(index=False))
-
-# Select the setting using validation MRR@10.
-best_row = max(results, key=lambda row: row["MRR@10"])
-best_k = best_row["k"]
-
-print("\nSelected RRF constant:", best_k)
-
-metrics_path = output_folder / "hybrid_validation_metrics.csv"
-results_df.to_csv(metrics_path, index=False)
-
-# Save the selected validation ranking in TREC format.
-run_path = output_folder / "hybrid_validation.run"
-rows = []
-
-for query_id, ranked in validation_runs[best_k].items():
-    for rank, (paper_id, score) in enumerate(ranked, start=1):
-        rows.append(
-            f"{query_id} Q0 {paper_id} {rank} {score:.8f} hybrid_rrf_k{best_k}"
-        )
-
-run_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
-
-print("Saved validation metrics:", metrics_path)
-print("Saved fused validation run:", run_path)
-print("\nTest data has not been evaluated.")
+if __name__ == "__main__":
+    main()

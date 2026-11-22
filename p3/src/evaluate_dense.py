@@ -1,82 +1,32 @@
+"""Evaluate every dense run on the VALIDATION split (for P3's own model selection).
 
-from pathlib import Path
-import math
+    python p3/src/evaluate_dense.py              # -> runs/p3/dense/dense_validation_metrics.csv
+
+Test-split numbers are produced once, by evaluate_hybrid_test.py, after all
+choices are frozen. P4's harness computes the official metrics.
+"""
+from __future__ import annotations
+
 import pandas as pd
 
-project_folder = Path.home() / "Desktop" / "CitationSearchProject"
-p1_folder = project_folder / "reference_p1" / "Inforetrievalfinalpro-p1-data-pipeline"
-data_folder = p1_folder / "data" / "processed"
-output_folder = Path(__file__).resolve().parent.parent / "outputs"
+from common import DENSE_DIR, evaluate, load_qrels, load_run, qrels_path
 
-results = []
 
-for split in ["train", "val", "test"]:
-    qrels_path = data_folder / "qrels" / f"qrels.{split}.txt"
-    run_path = output_folder / f"dense_{split}.run"
+def main() -> None:
+    rel = load_qrels(qrels_path("val"))
+    rows = []
+    for path in sorted(DENSE_DIR.glob("*.val.run")):
+        system = path.name.removesuffix(".val.run")
+        rows.append({"system": system, **evaluate(load_run(path), rel)})
+    if not rows:
+        raise SystemExit(f"No *.val.run files in {DENSE_DIR}; run p3/src/dense_baseline.py first")
+    df = pd.DataFrame(rows).sort_values("MRR@10", ascending=False)
+    out = DENSE_DIR / "dense_validation_metrics.csv"
+    df.round(4).to_csv(out, index=False)
+    print("Dense retrieval, validation split")
+    print(df.round(4).to_string(index=False))
+    print(f"\nSaved {out}")
 
-    relevant = {}
 
-    with qrels_path.open(encoding="utf-8") as file:
-        for line in file:
-            parts = line.split()
-            if len(parts) >= 4 and int(parts[3]) > 0:
-                relevant.setdefault(parts[0], set()).add(parts[2])
-
-    rankings = {}
-
-    with run_path.open(encoding="utf-8") as file:
-        for line in file:
-            parts = line.split()
-            if len(parts) >= 6:
-                qid = parts[0]
-                doc_id = parts[2]
-                rank = int(parts[3])
-                rankings.setdefault(qid, []).append((rank, doc_id))
-
-    hits = 0
-    reciprocal_ranks = []
-    ndcg_scores = []
-
-    for qid, relevant_docs in relevant.items():
-        ranked_docs = sorted(rankings.get(qid, []))
-        ranked_ids = [doc_id for rank, doc_id in ranked_docs]
-
-        found_rank = None
-        for rank, doc_id in ranked_docs:
-            if rank <= 10 and doc_id in relevant_docs:
-                found_rank = rank
-                break
-
-        if found_rank is not None:
-            hits += 1
-            reciprocal_ranks.append(1.0 / found_rank)
-            ndcg_scores.append(1.0 / math.log2(found_rank + 1))
-        else:
-            reciprocal_ranks.append(0.0)
-            ndcg_scores.append(0.0)
-
-    total = len(relevant)
-
-    if total == 0:
-        print(f"WARNING: No relevant queries found for {split}")
-        continue
-
-    recall = hits / total
-    mrr = sum(reciprocal_ranks) / total
-    ndcg = sum(ndcg_scores) / total
-
-    results.append({
-        "split": split,
-        "queries_evaluated": total,
-        "Recall@10": round(recall, 4),
-        "MRR@10": round(mrr, 4),
-        "nDCG@10": round(ndcg, 4)
-    })
-
-print("\nDense retrieval evaluation")
-print("=" * 60)
-print(pd.DataFrame(results).to_string(index=False))
-
-results_path = output_folder / "dense_metrics.csv"
-pd.DataFrame(results).to_csv(results_path, index=False)
-print(f"\nSaved metrics to: {results_path}")
+if __name__ == "__main__":
+    main()
