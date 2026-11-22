@@ -1,0 +1,7 @@
+# P4 evaluation (Python >= 3.10). Tested with numpy 2.4, pandas 3.1, scipy 1.17, pytest 9 on Python 3.11.
+# The lower bounds below are conservative and were NOT tested.
+numpy>=1.24
+pandas>=2.0
+scipy>=1.10        # significance tests and sparse matrices (graph)
+pyarrow>=14        # reading P1's parquet files (edges.parquet, papers.parquet)
+pytest>=7

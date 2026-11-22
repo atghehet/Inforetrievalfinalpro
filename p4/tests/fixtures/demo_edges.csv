@@ -1,0 +1,11 @@
+citing_paper_id,cited_paper_id,num_contexts
+X1,A,1
+X1,B,2
+X2,A,1
+X2,B,1
+X2,C,3
+X3,A,1
+X3,C,1
+A,D,1
+B,D,2
+C,D,1
