@@ -1,11 +1,22 @@
-# Data is never committed (size + licenses). Share via drive/release instead.
-data/raw/*
-data/processed/*
-data/external/*
-!data/*/.gitkeep
-models/
+# Data is never committed (size + licences). Share via the team drive instead.
+/data/raw/*
+/data/processed/*
+/data/external/*
+/data/p2_input/*
+!/data/*/.gitkeep
+/runs/
+/models/
+/cache/
+*.parquet
+*.sqlite
+*.db
+*.npy
+*.faiss
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
 .venv/
+venv/
 .env
