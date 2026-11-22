@@ -5,10 +5,10 @@ from citeds.leakage import assert_no_leakage, build_index_contexts, find_leaking
 from citeds.splits import make_queries
 
 
-def ctx(cid, citing, cited, text, prev="", nxt="", sent=None):
+def ctx(cid, citing, cited, text, prev="", nxt="", sent=None, nxt2=""):
     sent = sent or cid.split(">")[0]
     return {"context_id": cid, "sentence_id": sent, "citing_paper_id": citing, "cited_paper_id": cited,
-            "text": text, "prev_text": prev, "next_text": nxt, "section": "", "num_cited_in_sentence": 1}
+            "text": text, "prev_text": prev, "next_text": nxt, "prev2_text": "", "next2_text": nxt2, "section": "", "num_cited_in_sentence": 1}
 
 
 QUERY = "Adapter layers add small bottleneck modules to pretrained transformers for efficient tuning."
@@ -24,7 +24,9 @@ def toy():
         ctx("D#s3>P", "D", "P", "Adapters are a parameter efficient alternative to full fine tuning."),  # keep
         ctx("E#s9>P", "E", "P", "We follow the adapter recipe of prior work for our experiments.",
             prev=QUERY),                                                       # query leaks via prev_text
-        ctx("F#s1>R", "F", "R", QUERY.replace("efficient", "cheap")),          # near dup but cites OTHER paper: keep
+        ctx("F#s1>R", "F", "R", QUERY.replace("efficient", "cheap")),
+        ctx("G#s4>P", "G", "P", "A different sentence about tuning large models with few parameters.",
+            nxt2=QUERY),                                                       # query leaks via next2_text          # near dup but cites OTHER paper: keep
     ])
     queries = pd.DataFrame([{"query_id": "q000000", "split": "test", "context_id": "A#s1>P",
                              "sentence_id": "A#s1", "citing_paper_id": "A", "cited_paper_id": "P",
@@ -36,7 +38,8 @@ def test_leakage_removes_query_copies_and_near_duplicates(toy):
     contexts, queries = toy
     idx = build_index_contexts(contexts, queries)
     kept = set(idx["context_id"])
-    assert kept == {"D#s3>P", "E#s9>P", "F#s1>R"}
+    assert kept == {"D#s3>P", "E#s9>P", "F#s1>R", "G#s4>P"}
+    assert idx.loc[idx["context_id"] == "G#s4>P", "next2_text"].item() == ""
     assert idx.loc[idx["context_id"] == "E#s9>P", "prev_text"].item() == ""
     assert_no_leakage(idx, queries)
 

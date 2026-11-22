@@ -10,7 +10,7 @@ inflated. `build_index_contexts` removes, for EVERY query in EVERY split:
      (e.g. the same sentence re-used in another version or by co-authors),
   3. near duplicates: contexts citing the SAME paper whose word 3-gram
      Jaccard similarity with the query is >= config.NEAR_DUP_JACCARD,
-  4. query text appearing as a neighbour: prev_text/next_text equal to a
+  4. query text appearing as a neighbour: prev_text/next_text/prev2_text/next2_text equal to a
      query sentence are blanked, so "surrounding sentence" features can't leak.
 
 Use `assert_no_leakage` (Member 4) before reporting any results.
@@ -23,6 +23,8 @@ import pandas as pd
 
 from . import config
 from .clean import normalise_for_match
+
+NEIGHBOUR_COLS = ("prev_text", "next_text", "prev2_text", "next2_text")
 
 
 def shingles(text: str, k: int = config.SHINGLE_SIZE) -> frozenset:
@@ -67,7 +69,7 @@ def build_index_contexts(contexts: pd.DataFrame, queries: pd.DataFrame,
     leak = find_leaking_rows(contexts, queries, threshold)
     out = contexts.loc[~leak].copy()
     q_norm = set(queries["text"].map(normalise_for_match))
-    for col in ("prev_text", "next_text"):
+    for col in [c for c in NEIGHBOUR_COLS if c in out.columns]:
         hit = out[col].map(normalise_for_match).isin(q_norm) & (out[col] != "")
         out.loc[hit, col] = ""
     return out.reset_index(drop=True)
@@ -79,6 +81,6 @@ def assert_no_leakage(index_contexts: pd.DataFrame, queries: pd.DataFrame,
     leak = find_leaking_rows(index_contexts, queries, threshold)
     assert not leak.any(), f"{int(leak.sum())} index contexts leak query text, e.g. {index_contexts.loc[leak, 'context_id'].head(3).tolist()}"
     q_norm = set(queries["text"].map(normalise_for_match))
-    for col in ("prev_text", "next_text"):
+    for col in [c for c in NEIGHBOUR_COLS if c in index_contexts.columns]:
         bad = (index_contexts[col] != "") & index_contexts[col].map(normalise_for_match).isin(q_norm)
         assert not bad.any(), f"{int(bad.sum())} index contexts leak query text via {col}"

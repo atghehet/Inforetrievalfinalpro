@@ -35,6 +35,8 @@ CONTEXTS = pa.schema([
     ("text", pa.string()),             # cleaned citing sentence (markers removed)
     ("prev_text", pa.string()),        # cleaned previous sentence ("" if none)
     ("next_text", pa.string()),        # cleaned next sentence ("" if none)
+    ("prev2_text", pa.string()),       # sentence two before ("" if none)
+    ("next2_text", pa.string()),       # sentence two after ("" if none)
     ("section", pa.string()),          # section title as in the source, lower-cased
     ("num_cited_in_sentence", pa.int32()),  # how many corpus papers this sentence cites
 ])

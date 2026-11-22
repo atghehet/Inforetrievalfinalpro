@@ -46,6 +46,8 @@ document expansion.**
 | `text` | string | cleaned citing sentence, citation markers removed |
 | `prev_text` | string | previous sentence in the paragraph (`""` if none) |
 | `next_text` | string | next sentence in the paragraph (`""` if none) |
+| `prev2_text` | string | sentence two before (`""` if none) |
+| `next2_text` | string | sentence two after (`""` if none) |
 | `section` | string | section heading, lower-cased |
 | `num_cited_in_sentence` | int32 | how many corpus papers this sentence cites |
 

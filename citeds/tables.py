@@ -49,15 +49,18 @@ def build_tables(papers: Iterable[RawPaper], max_papers: int = config.MAX_PAPERS
                 clog["citing_sentences_seen"] += 1
                 prev_t = cleaned[i - 1] if i > 0 else ""
                 next_t = cleaned[i + 1] if i + 1 < len(para) else ""
+                prev2_t = cleaned[i - 2] if i > 1 else ""
+                next2_t = cleaned[i + 2] if i + 2 < len(para) else ""
                 for cited in s.cited_arxiv_ids:
                     raw_ctx.append((p.paper_id, s.sentence_number, cited, cleaned[i],
-                                    prev_t, next_t, s.section))
+                                    prev_t, next_t, prev2_t, next2_t, s.section))
     papers_df = pd.DataFrame(paper_rows).drop_duplicates("paper_id").reset_index(drop=True)
     clog["papers_kept"] = len(papers_df)
     corpus = set(papers_df["paper_id"])
 
     ctx = pd.DataFrame(raw_ctx, columns=["citing_paper_id", "sentence_number", "cited_paper_id",
-                                         "text", "prev_text", "next_text", "section"])
+                                         "text", "prev_text", "next_text", "prev2_text", "next2_text",
+                                         "section"])
     n0 = len(ctx)
     ctx = ctx[ctx["cited_paper_id"].isin(corpus)]
     clog["contexts_cited_outside_corpus"] = n0 - len(ctx)
