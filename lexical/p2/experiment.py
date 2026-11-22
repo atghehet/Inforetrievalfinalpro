@@ -59,7 +59,13 @@ def main():
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--method-filter", action="store_true", help="Also test method-only contexts; requires P1 labels")
     p.add_argument("--quick", action="store_true", help="One parameter setting, sentence only, no stemming")
+    p.add_argument("--middle", action="store_true",
+                   help="Quick grid plus BM25 tuned over all 6 (k1, b) settings on abstract, context and "
+                        "expanded; sentence only, no stemming")
     args = p.parse_args()
+    if args.quick and args.middle:
+        p.error("Choose either --quick or --middle")
+    reduced = args.quick or args.middle  # window 0 and no stemming
     out, data = args.out, args.data
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
@@ -80,9 +86,9 @@ def main():
         writer.writerow(["run","variant","model","parameters","validation_mrr_at_10","median_ms","mean_ms"])
         sizes.writerow(["index","build_seconds","bytes"])
         for variant in VARIANTS:
-            widths = [0] if args.quick or variant=="abstract" else [0,1,2]
+            widths = [0] if reduced or variant=="abstract" else [0,1,2]
             filters = [False,True] if args.method_filter and variant!="abstract" else [False]
-            for stem,width,filtered in itertools.product([False] if args.quick else [False,True],widths,filters):
+            for stem,width,filtered in itertools.product([False] if reduced else [False,True],widths,filters):
                 name = f"{variant}-w{width}-{'porter' if stem else 'plain'}-{'method' if filtered else 'all'}"
                 path = out/"indexes"/f"{name}.db"
                 start = time.perf_counter()
@@ -96,7 +102,8 @@ def main():
                         raise ValueError("A validation target is missing from papers.jsonl")
                     for model in (["bm25f"] if variant=="fielded" else ["tfidf","bm25","ql","rm3"]):
                         configs = grid(model)
-                        for index,params in enumerate(configs[:1] if args.quick else configs):
+                        tuned = not reduced or (args.middle and model == "bm25" and variant != "fielded")
+                        for index,params in enumerate(configs if tuned else configs[:1]):
                             tag = f"{name}-{model}-{index}"
                             score,median,mean = run(engine,val,model,params,out/"validation"/f"{tag}.run",tag,qrels)
                             writer.writerow([tag,variant,model,json.dumps(params),score,median,mean])

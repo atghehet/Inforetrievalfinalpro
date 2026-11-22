@@ -1,0 +1,10 @@
+# P3 dense + hybrid retrieval (CPU is fine for this corpus size).
+# On Windows/Linux without a GPU, install CPU torch first for a smaller download:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.2
+sentence-transformers>=3.0
+faiss-cpu>=1.8
+numpy>=1.24
+pandas>=2.0
+pyarrow>=14
+scikit-learn>=1.3
