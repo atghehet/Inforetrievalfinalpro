@@ -73,3 +73,5 @@ This runs: leakage check → export for P2 → P2 lexical experiment (middle gri
 * `lexical/README.md`: P2 details
 * `p3/README.md`: P3 details
 * `docs/P4_HANDOFF.md`: everything P4 needs
+* `docs/RESULTS.md`: current results (validation and test)
+* `docs/CRAWLER_HANDOUT.md`: OpenAlex crawler task (optional)
