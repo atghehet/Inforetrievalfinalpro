@@ -1,0 +1,11 @@
+# Data is never committed (size + licenses). Share via drive/release instead.
+data/raw/*
+data/processed/*
+data/external/*
+!data/*/.gitkeep
+models/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.env
